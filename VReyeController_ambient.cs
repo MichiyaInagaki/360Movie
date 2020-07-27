@@ -31,7 +31,8 @@ public class VReyeController_ambient : MonoBehaviour
     private float rotation_angle_pitch = 0.0f;      //大域回転角度
     private float force;                            //空気圧の値（左右）
     private float force_ud;                         //空気圧の値（上下）
-    private float force_to_angle;           //空気圧の値を角度に変換した値
+    private float force_to_angle;                   //空気圧の値を角度に変換した値
+    private float t_force = 100.0f;                  //空気圧回転閾値
     //
     //ローパスフィルタ
     private float filter_gain = 0.75f;              //default: 0.75
@@ -59,6 +60,8 @@ public class VReyeController_ambient : MonoBehaviour
     private bool f2_flag = false;
     private bool f3_flag = false;
     private bool f4_flag = false;
+    private bool f5_flag = false;
+    private bool f6_flag = false;
 
 
     // Start is called before the first frame update
@@ -98,6 +101,16 @@ public class VReyeController_ambient : MonoBehaviour
         {
             FlagDown();
             f4_flag = true;
+        }
+        if (Input.GetKeyDown(KeyCode.F5))
+        {
+            FlagDown();
+            f5_flag = true;
+        }
+        if (Input.GetKeyDown(KeyCode.F6))
+        {
+            FlagDown();
+            f6_flag = true;
         }
 
         //各種処理
@@ -362,6 +375,148 @@ public class VReyeController_ambient : MonoBehaviour
             }
         }
 
+        //5．局所回転：ジャイロ / 大域回転：空気圧閾値（Yawのみ） ///////////////////////////////////////
+        if (f5_flag == true)
+        {
+            //局所回転角度＋ローパスフィルタ
+            yaw_angle = pre_yaw * filter_gain + yaw_angle * (1 - filter_gain);
+            pre_yaw = yaw_angle;
+            pitch_angle = pre_pitch * filter_gain + pitch_angle * (1 - filter_gain);
+            pre_pitch = pitch_angle;
+            //
+            //大域回転部（空気圧閾値）
+            if (Math.Abs(force) > t_force)
+            {
+                //閾値を超えたらフェードアニメーション
+                fade_in = true;
+                fade_out = false;
+                //回転開始
+                if (force > 0)
+                {
+                    fixed_L_flag = true;
+                }
+                else
+                {
+                    fixed_R_flag = true;
+                }
+            }
+            else
+            {
+                fixed_L_flag = false;
+                fixed_R_flag = false;
+                fade_in = false;
+                fade_out = true;
+            }
+            //
+            //姿勢の決定
+            newAngle.y = yaw_angle + rotation_angle;            //局所回転角度＋大域回転角度
+            newAngle.z = 0;                                     //首回転角roll初期化
+            newAngle.x = pitch_angle + rotation_angle_pitch;    //局所回転角度＋大域回転角度
+            VReye.gameObject.transform.localEulerAngles = newAngle;     //姿勢の代入
+            //
+            //歩行動作（長押し・短押し対応版）
+            if (Input.GetKey(KeyCode.Space))
+            {
+                currentTime += Time.deltaTime;  //長押しの時間カウント
+                if (first_step_flag == true)    //最初に押した瞬間は一歩進む（短押し用）
+                {
+                    moveForward_D();
+                    first_step_flag = false;
+                }
+                else
+                {
+                    if (currentTime > span)     //長押しで一定時間ごとに前進
+                    {
+                        moveForward_D();
+                        currentTime = 0f;
+                    }
+                }
+            }
+            if (Input.GetKeyUp(KeyCode.Space))  //ボタン離したらフラグ戻す（短押し用）
+            {
+                first_step_flag = true;
+                currentTime = 0f;
+            }
+        }
+
+        //6．局所回転：空気圧枕 / 大域回転：空気圧閾値（Yawのみ） ///////////////////////////////////////
+        if (f6_flag == true)
+        {
+            //局所回転角の取得
+            force_to_angle = 0.4f * force;       //y=ax : force100 / yaw40
+            //平均値フィルタ
+            for (int i = AVE_NUM - 1; i > 0; i--)
+            {
+                list_force[i] = list_force[i - 1];
+            }
+            list_force[0] = force_to_angle;
+            for (int i = 0; i < AVE_NUM; i++)
+            {
+                ave_force += list_force[i];
+            }
+            ave_force = (float)(ave_force / AVE_NUM);
+            //ローパスフィルタ
+            mod_force = pre_force * filter_gain + ave_force * (1 - filter_gain);
+            pre_force = mod_force;
+            //ここで角度代入
+            yaw_angle = -mod_force;
+            //Debug.Log(yaw_angle);
+
+            //大域回転部（空気圧閾値）
+            if (Math.Abs(force) > t_force)
+            {
+                //閾値を超えたらフェードアニメーション
+                fade_in = true;
+                fade_out = false;
+                //回転開始
+                if (force > 0)
+                {
+                    fixed_L_flag = true;
+                }
+                else
+                {
+                    fixed_R_flag = true;
+                }
+            }
+            else
+            {
+                fixed_L_flag = false;
+                fixed_R_flag = false;
+                fade_in = false;
+                fade_out = true;
+            }
+            //
+
+            //姿勢の決定
+            newAngle.y = yaw_angle + rotation_angle;     //首回転角＋旋回角度
+            newAngle.z = 0;                                              //首回転角roll初期化
+            newAngle.x = 0;                                              //首回転角pitch
+            VReye.gameObject.transform.localEulerAngles = newAngle;
+
+            //歩行動作（長押し・短押し対応版）
+            if (Input.GetKey(KeyCode.Space))
+            {
+                currentTime += Time.deltaTime;  //長押しの時間カウント
+                if (first_step_flag == true)    //最初に押した瞬間は一歩進む（短押し用）
+                {
+                    moveForward_D();
+                    first_step_flag = false;
+                }
+                else
+                {
+                    if (currentTime > span)     //長押しで一定時間ごとに前進
+                    {
+                        moveForward_D();
+                        currentTime = 0f;
+                    }
+                }
+            }
+            if (Input.GetKeyUp(KeyCode.Space))  //ボタン離したらフラグ戻す（短押し用）
+            {
+                first_step_flag = true;
+                currentTime = 0f;
+            }
+        }
     }
 
     //離散移動の関数
@@ -402,6 +557,6 @@ public class VReyeController_ambient : MonoBehaviour
     //動作切り替え用関数
     void FlagDown()
     {
-        f1_flag = f2_flag = f3_flag = f4_flag = false;
+        f1_flag = f2_flag = f3_flag = f4_flag = f5_flag = f6_flag = false;
     }
 }

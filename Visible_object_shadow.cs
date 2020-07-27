@@ -5,7 +5,7 @@ using System;
 using System.Text;
 using System.IO;
 
-public class Visible_object : MonoBehaviour
+public class Visible_object_shadow : MonoBehaviour
 {
     // センサ値取得用
     public GameObject Data_Receiver;
@@ -23,6 +23,8 @@ public class Visible_object : MonoBehaviour
     //
     private bool start_flag = false;
     private bool start_flag2 = false;
+    //
+    private int cameraNum;
 
 
     // Update is called once per frame
@@ -35,17 +37,21 @@ public class Visible_object : MonoBehaviour
         force_ud = Data_Receiver.GetComponent<receive_data_gyro_airpress>().f_val_ud;
 
         //メインカメラから外れたかどうか
-        if (isInsideCamera)
-        {
-            //Debug.Log("in cam");
-            incam_flag = 0;
-        }
-        else
-        {
-            //Debug.Log("out cam");
-            incam_flag = 1;
-        }
+        //if (isInsideCamera)
+        //{
+        //    //Debug.Log("in cam");
+        //    incam_flag = 0;
+        //}
+        //else
+        //{
+        //    //Debug.Log("out cam");
+        //    incam_flag = 1;
+        //}
 
+        //インカメラ画角とメインカメラ画角
+        ShowText(cameraNum);
+        cameraNum = 0;
+        Debug.Log(incam_flag);
 
         //蝶々が動き出したら計測開始
         if (Input.GetKeyDown(KeyCode.M))
@@ -86,16 +92,51 @@ public class Visible_object : MonoBehaviour
     }
 
 
-    // メインカメラから外れた
-    private void OnBecameInvisible()
+    //// メインカメラから外れた
+    //private void OnBecameInvisible()
+    //{
+    //    isInsideCamera = false;
+    //}
+    //// メインカメラ内に入った
+    //private void OnBecameVisible()
+    //{
+    //    isInsideCamera = true;
+    //}
+
+    // インカメラ画角とメインカメラ画角
+    void OnWillRenderObject()
     {
-        isInsideCamera = false;
-    }
-    // メインカメラ内に入った
-    private void OnBecameVisible()
-    {
-        isInsideCamera = true;
+        if (Camera.current.name == "Inside Camera")
+        {
+            //Debug.Log("inside");
+            cameraNum++;
+        }
+        if (Camera.current.name == "Main Camera")
+        {
+            //Debug.Log("outside");
+            cameraNum += 2;
+        }
     }
 
-
+    void ShowText(int num)
+    {
+        switch (num)
+        {
+            case 0:
+                //Debug.Log("映ってないよ");
+                incam_flag = 1;
+                break;
+            case 1:
+                //Debug.Log("inside");
+                break;
+            case 2:
+                //Debug.Log("outside");
+                incam_flag = 1;
+                break;
+            case 3:
+                //Debug.Log("both");
+                incam_flag = 0;
+                break;
+        }
+    }
 }

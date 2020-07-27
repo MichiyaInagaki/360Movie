@@ -56,6 +56,8 @@ public class autoMove : MonoBehaviour
     private Vector3[] reg_vector = new Vector3[31];
     private float MIN_REG_PHI = -60.0f * (Mathf.PI / 180.0f);    //最小のphi
     private float MAX_REG_PHI = 240.0f * (Mathf.PI / 180.0f);    //最大のphi
+    //private float MIN_REG_PHI = 0.0f * (Mathf.PI / 180.0f);    //最小のphi
+    //private float MAX_REG_PHI = 180.0f * (Mathf.PI / 180.0f);    //最大のphi
     //
     private bool start_flag = false;
     private bool start_flag2 = false;
