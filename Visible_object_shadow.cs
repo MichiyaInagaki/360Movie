@@ -51,7 +51,7 @@ public class Visible_object_shadow : MonoBehaviour
         //インカメラ画角とメインカメラ画角
         ShowText(cameraNum);
         cameraNum = 0;
-        Debug.Log(incam_flag);
+        //Debug.Log(incam_flag);
 
         //蝶々が動き出したら計測開始
         if (Input.GetKeyDown(KeyCode.M))

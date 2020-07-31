@@ -32,7 +32,15 @@ public class VReyeController_ambient : MonoBehaviour
     private float force;                            //空気圧の値（左右）
     private float force_ud;                         //空気圧の値（上下）
     private float force_to_angle;                   //空気圧の値を角度に変換した値
-    private float t_force = 100.0f;                  //空気圧回転閾値
+    private float t_force = 100.0f;                 //空気圧回転閾値
+    //
+    private bool headlock_flag = false;             //ヘッドロック用
+    private float pre_angle = 0.0f;                 //ヘッドロック用
+    private float temp_yaw_angle = 0.0f;            //トラッキング無効用
+    private bool notrack_flag = false;              //トラッキング無効フラグ
+    private float span_notrack = 1.0f;              //トラッキング無効時間
+    private float currentTime_notrack = 0f;         //トラッキング無効時間カウント
+    private float restart_yaw = 0.0f;               //トラッキング再開用
     //
     //ローパスフィルタ
     private float filter_gain = 0.75f;              //default: 0.75
@@ -62,6 +70,7 @@ public class VReyeController_ambient : MonoBehaviour
     private bool f4_flag = false;
     private bool f5_flag = false;
     private bool f6_flag = false;
+    private bool f7_flag = false;
 
 
     // Start is called before the first frame update
@@ -111,6 +120,11 @@ public class VReyeController_ambient : MonoBehaviour
         {
             FlagDown();
             f6_flag = true;
+        }
+        if (Input.GetKeyDown(KeyCode.F7))
+        {
+            FlagDown();
+            f7_flag = true;
         }
 
         //各種処理
@@ -178,6 +192,8 @@ public class VReyeController_ambient : MonoBehaviour
                 currentTime = 0f;
             }
         }
+        //END 1.///////////////////////////////////////////////////////////////////////////////////////
+
 
         //2．局所回転：ジャイロ / 大域回転：キー操作Yaw＋Pitch ///////////////////////////////////////
         if (f2_flag == true)
@@ -249,6 +265,8 @@ public class VReyeController_ambient : MonoBehaviour
                 currentTime = 0f;
             }
         }
+        //END 2.///////////////////////////////////////////////////////////////////////////////////////
+
 
         //3．局所回転：空気圧枕 / 大域回転：キー操作Yaw＋Pitch ///////////////////////////////////////
         if (f3_flag == true)
@@ -309,7 +327,7 @@ public class VReyeController_ambient : MonoBehaviour
             newAngle.z = 0;                                              //首回転角roll初期化
             newAngle.x = 0;                                              //首回転角pitch
             VReye.gameObject.transform.localEulerAngles = newAngle;
-            
+
             //歩行動作（長押し・短押し対応版）
             if (Input.GetKey(KeyCode.Space))
             {
@@ -334,6 +352,8 @@ public class VReyeController_ambient : MonoBehaviour
                 currentTime = 0f;
             }
         }
+        //END 3.///////////////////////////////////////////////////////////////////////////////////////
+
 
         //4．局所回転：ジャイロ / 大域回転：なし ///////////////////////////////////////
         if (f4_flag == true)
@@ -374,6 +394,8 @@ public class VReyeController_ambient : MonoBehaviour
                 currentTime = 0f;
             }
         }
+        //END 4.///////////////////////////////////////////////////////////////////////////////////////
+
 
         //5．局所回転：ジャイロ / 大域回転：空気圧閾値（Yawのみ） ///////////////////////////////////////
         if (f5_flag == true)
@@ -438,6 +460,8 @@ public class VReyeController_ambient : MonoBehaviour
                 currentTime = 0f;
             }
         }
+        //END 5.///////////////////////////////////////////////////////////////////////////////////////
+
 
         //6．局所回転：空気圧枕 / 大域回転：空気圧閾値（Yawのみ） ///////////////////////////////////////
         if (f6_flag == true)
@@ -517,6 +541,107 @@ public class VReyeController_ambient : MonoBehaviour
                 currentTime = 0f;
             }
         }
+        //END 6.///////////////////////////////////////////////////////////////////////////////////////
+
+
+        //7．局所回転：ジャイロ / 大域回転：ヘッドロック ///////////////////////////////////////
+        if (f7_flag == true)
+        {
+            //局所回転角度＋ローパスフィルタ
+            yaw_angle = pre_yaw * filter_gain + yaw_angle * (1 - filter_gain);
+            pre_yaw = yaw_angle;
+            pitch_angle = pre_pitch * filter_gain + pitch_angle * (1 - filter_gain);
+            pre_pitch = pitch_angle;
+            //
+            //連続ヘッドロック//////////////////////////////
+            //if (Input.GetKeyDown(KeyCode.Z))
+            //{
+            //    rotation_angle += yaw_angle * 2;
+            //}
+            //if (Input.GetKey(KeyCode.Z))
+            //{
+            //    yaw_angle = -yaw_angle;
+            //}
+            //if (Input.GetKeyUp(KeyCode.Z))
+            //{
+            //    rotation_angle -= yaw_angle * 2;
+            //}
+            if (Input.GetKeyDown(KeyCode.Z))    //ヘッドロックのONトリガー
+            {
+                rotation_angle += yaw_angle * 2;
+                headlock_flag = true;
+                fade_in = true;                 //ONトリガーでフェードイン
+                fade_out = false;
+            }
+            if (headlock_flag == true)
+            {
+                yaw_angle = -yaw_angle;
+                if (yaw_angle * pre_angle < 0) //OFFトリガー（正面を向く）
+                {
+                    rotation_angle -= yaw_angle * 2;
+                    temp_yaw_angle = -yaw_angle;
+                    headlock_flag = false;
+                    notrack_flag = true;
+                    fade_in = false;            //OFFトリガーでフェードアウト
+                    fade_out = true;
+                }
+                pre_angle = yaw_angle;
+            }
+            else
+            {
+                pre_angle = -yaw_angle;
+            }
+            Debug.Log("yaw_angle" + yaw_angle + " rotation_angle" + rotation_angle + " headlock_flag" + headlock_flag + " notrack_flag" + notrack_flag);
+            //
+            if (notrack_flag == false)
+            {
+                newAngle.y = yaw_angle + rotation_angle;        //首回転角＋初期調整角度＋旋回角度
+                newAngle.z = 0;                                 //首回転角roll初期化
+                newAngle.x = pitch_angle;                       //首回転角pitch
+                VReye.gameObject.transform.localEulerAngles = newAngle;
+            }
+            else
+            {
+                //トラッキング無効時（正面に戻ったとき一定時間停止）
+                newAngle.y = temp_yaw_angle + rotation_angle;     //首回転角＋初期調整角度＋旋回角度
+                newAngle.z = 0;                                   //首回転角roll初期化
+                newAngle.x = pitch_angle;                         //首回転角pitch
+                VReye.gameObject.transform.localEulerAngles = newAngle;
+                currentTime_notrack += Time.deltaTime;  //時間カウント
+                if (currentTime_notrack > span_notrack)
+                {
+                    rotation_angle -= yaw_angle;    //トラッキング無効時の角度変化を補正
+                    currentTime_notrack = 0f;
+                    notrack_flag = false;
+                }
+            }
+
+            //
+            //歩行動作（長押し・短押し対応版）
+            if (Input.GetKey(KeyCode.Space))
+            {
+                currentTime += Time.deltaTime;  //長押しの時間カウント
+                if (first_step_flag == true)    //最初に押した瞬間は一歩進む（短押し用）
+                {
+                    moveForward_D();
+                    first_step_flag = false;
+                }
+                else
+                {
+                    if (currentTime > span)     //長押しで一定時間ごとに前進
+                    {
+                        moveForward_D();
+                        currentTime = 0f;
+                    }
+                }
+            }
+            if (Input.GetKeyUp(KeyCode.Space))  //ボタン離したらフラグ戻す（短押し用）
+            {
+                first_step_flag = true;
+                currentTime = 0f;
+            }
+            //END 7.///////////////////////////////////////////////////////////////////////////////////////
+        }
     }
 
     //離散移動の関数
@@ -557,6 +682,6 @@ public class VReyeController_ambient : MonoBehaviour
     //動作切り替え用関数
     void FlagDown()
     {
-        f1_flag = f2_flag = f3_flag = f4_flag = f5_flag = f6_flag = false;
+        f1_flag = f2_flag = f3_flag = f4_flag = f5_flag = f6_flag = f7_flag = false;
     }
 }
