@@ -8,12 +8,16 @@ public class FadeScript_ambient : MonoBehaviour
     public GameObject VReyeController;
     public float speed = 0.04f;  //透明化の速さ
     public bool fade_mode_on = false;    //フェードかけるかどうか
+    public GameObject Arrow_L;
+    public GameObject Arrow_R;
+    public GameObject Data_Receiver;
     //
     private float alfa;    //A値を操作するための変数
     private float red, green, blue;    //RGBを操作するための変数
     private float max_fade = 0.9f;      //最大のフェード
     private bool fadein_flag = false;   //フェードイン
     private bool fadeout_flag = false;  //フェードアウト
+    private float yaw_angle;
 
 
     // Start is called before the first frame update
@@ -31,6 +35,7 @@ public class FadeScript_ambient : MonoBehaviour
         //
         fadein_flag = VReyeController.GetComponent<VReyeController_ambient>().fade_in;
         fadeout_flag = VReyeController.GetComponent<VReyeController_ambient>().fade_out;
+        yaw_angle = Data_Receiver.GetComponent<receive_data_gyro_airpress>().yaw_val;
         //フェード機能のオンオフ
         if (Input.GetKeyDown(KeyCode.F))
         {
@@ -62,11 +67,21 @@ public class FadeScript_ambient : MonoBehaviour
                 else
                 {
                     alfa = max_fade;
+                    if (yaw_angle > 10)
+                    {
+                        Arrow_R.SetActive(true);
+                    }
+                    else if (yaw_angle < -10)
+                    {
+                        Arrow_L.SetActive(true);
+                    }
                 }
             }
 
             if (fadeout_flag == true)
             {
+                Arrow_L.SetActive(false);
+                Arrow_R.SetActive(false);
                 if (alfa > 0)
                 {
                     alfa -= speed;
