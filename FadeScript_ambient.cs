@@ -7,7 +7,7 @@ public class FadeScript_ambient : MonoBehaviour
 {
     public GameObject VReyeController;
     public float speed = 0.04f;  //透明化の速さ
-    public bool fade_mode_on = false;    //フェードかけるかどうか
+    public bool fade_mode_on = true;    //フェードかけるかどうか
     public GameObject Arrow_L;
     public GameObject Arrow_R;
     public GameObject Data_Receiver;
