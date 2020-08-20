@@ -19,8 +19,8 @@ public class autoMove : MonoBehaviour
     //private const float T_MIN_MOVE_RANGE = 90.0f * (Mathf.PI / 180.0f);
     //private const float T_MAX_MOVE_RANGE = 95.0f * (Mathf.PI / 180.0f);
     // φ下限上限 deg
-    private const float P_MIN_MOVE_RANGE = -60.0f * (Mathf.PI / 180.0f);
-    private const float P_MAX_MOVE_RANGE = 240.0f * (Mathf.PI / 180.0f);
+    private const float P_MIN_MOVE_RANGE = 0.0f * (Mathf.PI / 180.0f);
+    private const float P_MAX_MOVE_RANGE = 180.0f * (Mathf.PI / 180.0f);
     //private const float P_MIN_MOVE_RANGE = 180.0f * (Mathf.PI / 180.0f);
     //private const float P_MAX_MOVE_RANGE = 225.0f * (Mathf.PI / 180.0f);
     // r
@@ -116,6 +116,13 @@ public class autoMove : MonoBehaviour
             cal_flag = false;
             init_flag = true;
         }
+
+        //蝶々の表示非表示
+        if (Input.GetKeyDown(KeyCode.D))
+        {
+            gameObject.SetActive(false);
+        }
+
 
         if (init_flag == true)
         {
