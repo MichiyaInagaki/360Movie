@@ -67,11 +67,11 @@ public class FadeScript_ambient : MonoBehaviour
                 else
                 {
                     alfa = max_fade;
-                    if (yaw_angle > 10)
+                    if (yaw_angle > 30)
                     {
                         Arrow_R.SetActive(true);
                     }
-                    else if (yaw_angle < -10)
+                    else if (yaw_angle < -30)
                     {
                         Arrow_L.SetActive(true);
                     }

@@ -88,6 +88,8 @@ public class VReyeController_ambient : MonoBehaviour
     private bool f8_flag = false;
     private bool f9_flag = false;
     private bool f10_flag = false;
+    private bool f11_flag = false;
+    private bool f12_flag = false;
 
 
     // Start is called before the first frame update
@@ -157,6 +159,16 @@ public class VReyeController_ambient : MonoBehaviour
         {
             FlagDown();
             f10_flag = true;
+        }
+        if (Input.GetKeyDown(KeyCode.F11))
+        {
+            FlagDown();
+            f11_flag = true;
+        }
+        if (Input.GetKeyDown(KeyCode.F12))
+        {
+            FlagDown();
+            f12_flag = true;
         }
 
 
@@ -917,6 +929,11 @@ public class VReyeController_ambient : MonoBehaviour
             //頭部制御部
             if (Math.Abs(yaw_angle) > Math.Abs(move_angle))    //頭部閾値でのONトリガー
             {
+                if (first_step_flag == true)    //最初に処理入ったときの値をとる
+                {
+                    temp_yaw_angle = yaw_angle; //角度固定
+                    first_step_flag = false;
+                }
                 head_move_flag = true;  //頭部制御中フラグ
                 //閾値を超えたらフェードアニメーション
                 fade_in = true;
@@ -924,12 +941,12 @@ public class VReyeController_ambient : MonoBehaviour
                 //回転開始
                 if (yaw_angle < 0)
                 {
-                    temp_yaw_angle = -move_angle;    //閾値で角度固定
+                    //temp_yaw_angle = -move_angle;    //閾値で角度固定
                     fixed_L_flag = true;
                 }
                 else
                 {
-                    temp_yaw_angle = move_angle;     //閾値で角度固定
+                    //temp_yaw_angle = move_angle;     //閾値で角度固定
                     fixed_R_flag = true;
                 }
                 notrack_flag = true;    //トラッキング無効
@@ -941,6 +958,7 @@ public class VReyeController_ambient : MonoBehaviour
                 {
                     fixed_L_flag = false;
                     fixed_R_flag = false;
+                    first_step_flag = true;
                     if (yaw_angle * pre_angle < 0) //トラッキング無効解除トリガー（正面を向く）
                     {
                         head_move_flag = false; //頭部制御中フラグOFF
@@ -995,6 +1013,174 @@ public class VReyeController_ambient : MonoBehaviour
             }
         }
         //END 10.///////////////////////////////////////////////////////////////////////////////////////
+
+        //11．局所回転：空気圧枕 / 大域回転：空気圧閾値（首戻しあり） ///////////////////////////////////////
+        if (f11_flag == true)
+        {
+            //局所回転角の取得
+            force_to_angle = 0.4f * force;       //y=ax : force100 / yaw40
+            //平均値フィルタ
+            for (int i = AVE_NUM - 1; i > 0; i--)
+            {
+                list_force[i] = list_force[i - 1];
+            }
+            list_force[0] = force_to_angle;
+            for (int i = 0; i < AVE_NUM; i++)
+            {
+                ave_force += list_force[i];
+            }
+            ave_force = (float)(ave_force / AVE_NUM);
+            //ローパスフィルタ
+            mod_force = pre_force * filter_gain + ave_force * (1 - filter_gain);
+            pre_force = mod_force;
+            //ここで角度代入
+            yaw_angle = -mod_force;
+            //
+            //頭部制御部
+            if (Math.Abs(force) > Math.Abs(t_force))    //頭部閾値でのONトリガー
+            {
+                head_move_flag = true;  //頭部制御中フラグ
+                if (first_step_flag == true)    //最初に処理入ったときの値をとる
+                {
+                    temp_yaw_angle = yaw_angle; //角度固定
+                    first_step_flag = false;
+                }
+                //閾値を超えたらフェードアニメーション
+                fade_in = true;
+                fade_out = false;
+                //回転開始
+                if (force > 0)
+                {
+                    fixed_L_flag = true;
+                }
+                else
+                {
+                    fixed_R_flag = true;
+                }
+                notrack_flag = true;    //トラッキング無効
+            }
+
+            if (head_move_flag == true)
+            {
+                if (Math.Abs(force) < Math.Abs(t_force))
+                {
+                    fixed_L_flag = false;
+                    fixed_R_flag = false;
+                    first_step_flag = true;
+                    if (yaw_angle * pre_angle < 0) //トラッキング無効解除トリガー（正面を向く）
+                    {
+                        head_move_flag = false; //頭部制御中フラグOFF
+                        rotation_angle += temp_yaw_angle;   //トラッキング無効時に回転した分を補正
+                        notrack_flag = false;   //トラッキング有効
+                        fade_in = false;
+                        fade_out = true;
+                    }
+                }
+            }
+            pre_angle = yaw_angle;
+
+            if (notrack_flag == false)
+            {
+                //通常時
+                newAngle.y = yaw_angle + rotation_angle;        //首回転角＋初期調整角度＋旋回角度
+                newAngle.z = 0;                                 //首回転角roll初期化
+                newAngle.x = 0;                                 //首回転角pitch
+                VReye.gameObject.transform.localEulerAngles = newAngle;
+            }
+            else
+            {
+                //トラッキング無効時（正面に戻ったとき一定時間停止）
+                newAngle.y = temp_yaw_angle + rotation_angle;     //首回転角＋初期調整角度＋旋回角度
+                newAngle.z = 0;                                   //首回転角roll初期化
+                newAngle.x = 0;                                   //首回転角pitch
+                VReye.gameObject.transform.localEulerAngles = newAngle;
+            }
+            //
+            //歩行動作（長押し・短押し対応版）
+            if (Input.GetKey(KeyCode.Space))
+            {
+                currentTime += Time.deltaTime;  //長押しの時間カウント
+                if (first_step_flag == true)    //最初に押した瞬間は一歩進む（短押し用）
+                {
+                    moveForward_D();
+                    first_step_flag = false;
+                }
+                else
+                {
+                    if (currentTime > span)     //長押しで一定時間ごとに前進
+                    {
+                        moveForward_D();
+                        currentTime = 0f;
+                    }
+                }
+            }
+            if (Input.GetKeyUp(KeyCode.Space))  //ボタン離したらフラグ戻す（短押し用）
+            {
+                first_step_flag = true;
+                currentTime = 0f;
+            }
+        }
+        //END 11.///////////////////////////////////////////////////////////////////////////////////////
+
+
+        //12．局所回転：なし / 大域回転：空気圧閾値 ///////////////////////////////////////
+        if (f12_flag == true)
+        {
+            //大域回転部（空気圧閾値）
+            if (Math.Abs(force) > t_force)
+            {
+                //閾値を超えたらフェードアニメーション
+                fade_in = true;
+                fade_out = false;
+                //回転開始
+                if (force > 0)
+                {
+                    fixed_L_flag = true;
+                }
+                else
+                {
+                    fixed_R_flag = true;
+                }
+            }
+            else
+            {
+                fixed_L_flag = false;
+                fixed_R_flag = false;
+                fade_in = false;
+                fade_out = true;
+            }
+            //
+            //姿勢の決定
+            newAngle.y = rotation_angle;            //局所回転角度＋大域回転角度
+            newAngle.z = 0;                                     //首回転角roll初期化
+            newAngle.x = rotation_angle_pitch;    //局所回転角度＋大域回転角度
+            VReye.gameObject.transform.localEulerAngles = newAngle;     //姿勢の代入
+            //
+            //歩行動作（長押し・短押し対応版）
+            if (Input.GetKey(KeyCode.Space))
+            {
+                currentTime += Time.deltaTime;  //長押しの時間カウント
+                if (first_step_flag == true)    //最初に押した瞬間は一歩進む（短押し用）
+                {
+                    moveForward_D();
+                    first_step_flag = false;
+                }
+                else
+                {
+                    if (currentTime > span)     //長押しで一定時間ごとに前進
+                    {
+                        moveForward_D();
+                        currentTime = 0f;
+                    }
+                }
+            }
+            if (Input.GetKeyUp(KeyCode.Space))  //ボタン離したらフラグ戻す（短押し用）
+            {
+                first_step_flag = true;
+                currentTime = 0f;
+            }
+        }
+        //END 12.///////////////////////////////////////////////////////////////////////////////////////
     }
 
     //離散移動の関数
@@ -1035,6 +1221,6 @@ public class VReyeController_ambient : MonoBehaviour
     //動作切り替え用関数
     void FlagDown()
     {
-        f1_flag = f2_flag = f3_flag = f4_flag = f5_flag = f6_flag = f7_flag = f8_flag = f9_flag = f10_flag = false;
+        f1_flag = f2_flag = f3_flag = f4_flag = f5_flag = f6_flag = f7_flag = f8_flag = f9_flag = f10_flag = f11_flag = f12_flag = false;
     }
 }
